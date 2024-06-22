@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2000m Pacingstrategie</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        input, button { margin: 10px 0; padding: 5px; }
+        .error { color: red; display: none; }
+        @media print {
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <h1>2000m Pacingstrategie</h1>
+    <div class="no-print">
+        <label for="targetTime">Streeftijd 2K (mm:ss.s):</label>
+        <input type="text" id="targetTime" placeholder="6:32.0">
+        <br>
+        <label for="strokeRate">Gemiddelde Slagfrequentie:</label>
+        <input type="number" id="strokeRate" placeholder="34">
+        <br>
+        <button onclick="generateTables()">Genereer Wedstrijdplan</button>
+        <p id="error" class="error">Voer ajb zowel de streeftijd als de slagfrequentie in.</p>
+    </div>
+
+    <h2>500m Interval Tabel</h2>
+    <table id="table500m"></table>
+
+    <h2>250m Interval Tabel</h2>
+    <table id="table250m"></table>
+
+    <script>
+        function generateTables() {
+            const targetTime = document.getElementById('targetTime').value;
+            const strokeRate = document.getElementById('strokeRate').value;
+            const errorElement = document.getElementById('error');
+
+            if (!targetTime || !strokeRate) {
+                errorElement.style.display = 'block';
+                return;
+            }
+            errorElement.style.display = 'none';
+
+            const avgPace = calculateAveragePace(targetTime);
+            const table500m = generateTable500m(avgPace, parseInt(strokeRate));
+            const table250m = generateTable250m(avgPace, parseInt(strokeRate));
+
+            displayTable(table500m, 'table500m');
+            displayTable(table250m, 'table250m');
+        }
+
+        function calculateAveragePace(targetTime) {
+            const [minutes, seconds] = targetTime.split(':');
+            const totalSeconds = parseInt(minutes) * 60 + parseFloat(seconds);
+            return totalSeconds / 4;
+        }
+
+        function paceToString(paceSeconds) {
+            const minutes = Math.floor(paceSeconds / 60);
+            const seconds = (paceSeconds % 60).toFixed(1);
+            return `${minutes}:${seconds.padStart(4, '0')}`;
+        }
+
+        function calculateWatts(paceSeconds) {
+            return Math.round(2.80 / Math.pow(paceSeconds / 500, 3));
+        }
+
+        function generateTable500m(avgPace, strokeRate) {
+            const pacePercentages = [1.028, 0.995, 0.985, 1.03];
+            const strokeRatePercentages = [1.088, 1, 1, 1.059];
+            let cumulativeTime = 0;
+
+            return pacePercentages.map((percentage, index) => {
+                const adjustedPace = avgPace / percentage;
+                const adjustedStrokeRate = Math.round(strokeRate * strokeRatePercentages[index]);
+                const speed = 500 / adjustedPace;
+                const watts = calculateWatts(adjustedPace);
+                cumulativeTime += adjustedPace;
+
+                return {
+                    interval: `${index * 500}-${(index + 1) * 500}m`,
+                    pace: `${paceToString(adjustedPace)} (${Math.round(percentage * 100)}%) @ ${adjustedStrokeRate}`,
+                    speed: speed.toFixed(1),
+                    watts: watts,
+                    split: paceToString(cumulativeTime)
+                };
+            });
+        }
+
+        function generateTable250m(avgPace, strokeRate) {
+            const pacePercentages = [1.04, 1.015, 0.995, 0.995, 0.985, 0.985, 1.015, 1.04];
+            const strokeRatePercentages = [1.118, 1.029, 1, 1, 1, 1, 1.029, 1.088];
+            let cumulativeTime = 0;
+
+            return pacePercentages.map((percentage, index) => {
+                const adjustedPace = avgPace / percentage;
+                const adjustedStrokeRate = Math.round(strokeRate * strokeRatePercentages[index]);
+                const speed = 500 / adjustedPace;
+                const watts = calculateWatts(adjustedPace);
+                cumulativeTime += adjustedPace / 2;
+
+                return {
+                    interval: `${index * 250}-${(index + 1) * 250}m`,
+                    pace: `${paceToString(adjustedPace)} (${Math.round(percentage * 100)}%) @ ${adjustedStrokeRate}`,
+                    speed: speed.toFixed(1),
+                    watts: watts,
+                    split: paceToString(cumulativeTime)
+                };
+            });
+        }
+
+        function displayTable(data, tableId) {
+            const table = document.getElementById(tableId);
+            table.innerHTML = '';
+
+            const header = table.createTHead();
+            const headerRow = header.insertRow();
+            const headers = ['Interval', 'Gem. tempo (% van Gem Tempo) @ Slagfrequentie', 'Gem. tempo (m/s)', 'Vermogen (Watt)', 'Cumulatieve split'];
+            headers.forEach(text => {
+                const th = document.createElement('th');
+                th.textContent = text;
+                headerRow.appendChild(th);
+            });
+
+            const body = table.createTBody();
+            data.forEach(row => {
+                const tr = body.insertRow();
+                Object.values(row).forEach(value => {
+                    const td = tr.insertCell();
+                    td.textContent = value;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
